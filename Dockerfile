@@ -6,13 +6,13 @@ FROM ssidk/bifrost-base:2.0
 LABEL \
     name="bifrost-whats_my_species_check" \
     description="Docker environment for whats_my_species in bifrost" \
-    version="2.0" \
+    version="2.0.5" \
     DBversion="31/07/19" \
     maintainer="kimn@ssi.dk;"
 
 RUN \
-    conda install -yq -c bioconda kraken==1.1.1; \
-    conda install -yq -c bioconda bracken==1.0.0; \
+    conda install -yq -c conda-forge -c bioconda -c defaults kraken==1.1.1; \
+    conda install -yq -c conda-forge -c bioconda -c defaults bracken==1.0.0; \
     # Kraken mini DB and bracken
     cd /bifrost_resources; \
     # NOTE: even though the file is dated 20171019 it's actually when unzipped 20171013, to avoid some issues im renaming it minikraken

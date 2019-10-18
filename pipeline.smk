@@ -72,7 +72,7 @@ rule contaminant_check__classify_reads_kraken_minikraken_db:
     params:
         db = bifrost_resources["kraken_database"]
     shell:
-        "kraken --threads {threads} -db {params.db} {input.reads} 2> {log.err_file} | kraken-report -db {params.db} 1> {output.kraken_report}"
+        "kraken -db {params.db} {input.reads} 2> {log.err_file} | kraken-report -db {params.db} 1> {output.kraken_report}"
 
 
 rule_name = "contaminant_check__determine_species_bracken_on_minikraken_results"
