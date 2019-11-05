@@ -1,7 +1,4 @@
-# Dockerfile to for:
-
-# Load miniconda Docker image to work off of
-FROM ssidk/bifrost-base:2.0
+FROM ssidk/bifrost-base:2.0.5
 
 LABEL \
     name="bifrost-whats_my_species_check" \
@@ -13,19 +10,22 @@ LABEL \
 RUN \
     conda install -yq -c conda-forge -c bioconda -c defaults kraken==1.1.1; \
     conda install -yq -c conda-forge -c bioconda -c defaults bracken==1.0.0; \
-    # Kraken mini DB and bracken
-    cd /bifrost_resources; \
-    # NOTE: even though the file is dated 20171019 it's actually when unzipped 20171013, to avoid some issues im renaming it minikraken
-    # wget -q https://ccb.jhu.edu/software/kraken/dl/minikraken_20171019_4GB.tgz; \
-    wget -q https://ccb.jhu.edu/software/kraken/dl/minikraken_20171019_8GB.tgz; \
-    # tar -zxf minikraken_20171019_4GB.tgz; \
-    # The tar contains a folder so just need to change it to minikraken (the -C)
-    tar -zxvf minikraken_20171019_8GB.tgz; \
-    mv minikraken_20171019_8GB minikraken; \
-    rm minikraken_20171019_8GB.tgz; \
-    # wget -q https://ccb.jhu.edu/software/bracken/dl/minikraken_4GB_100mers_distrib.txt;
-    wget -q https://ccb.jhu.edu/software/bracken/dl/minikraken_8GB_100mers_distrib.txt;\
-    mv minikraken_8GB_100mers_distrib.txt minikraken_100mers_distrib.txt;
+    cd /bifrost; \
+    git clone https://github.com/ssi-dk/bifrost-whats_my_species.git whats_my_species;
+
+ADD \
+    https://ccb.jhu.edu/software/kraken/dl/minikraken_20171019_8GB.tgz /bifrost_resources/
+RUN \
+    cd /bifrost_resources/; \
+    tar -zxf minikraken_20171019_8GB.tgz /bifrost/minikraken/; 
+
+
+ADD \
+    https://ccb.jhu.edu/software/bracken/dl/minikraken_8GB_100mers_distrib.txt /bifrost_resources/minikraken/minikraken_100mers_distrib.txt
+RUN \
+    chmod +r /bifrost_resources/minikraken/minikraken_100mers_distrib.txt;
 
 ENTRYPOINT \
-    ["/bifrost_resources/docker_umask_002.sh"]
+    [ "/bifrost/whats_my_species/launcher.py"]
+CMD \
+    [ "/bifrost/whats_my_species/launcher.py", "--help"]
