@@ -18,23 +18,21 @@ RUN \
     conda install -yq -c conda-forge -c bioconda -c defaults bracken==1.0.0;
 #- Tools to install:end ----------------------------------------------------------------------------
 
-#- Source code:start -------------------------------------------------------------------------------
-RUN cd /bifrost && \
-    git clone --branch ${version} https://github.com/ssi-dk/${full_name}.git ${name};
-#- Source code:end ---------------------------------------------------------------------------------
-
 #- Additional resources (files/DBs): start ---------------------------------------------------------
 RUN cd /bifrost_resources && \
-    wget -q https://ccb.jhu.edu/software/kraken/dl/minikraken_20171019_8GB.tgz && \
-    tar -zxf minikraken_20171019_8GB.tgz minikraken;
+    mkdir minikraken && \
+    wget -q https://ccb.jhu.edu/software/kraken/dl/minikraken_20171019_8GB.tgz &&\
+    tar -zxf minikraken_20171019_8GB.tgz --strip-components=1 && \
+    rm minikraken_20171019_8GB.tgz
 RUN cd /bifrost_resources && \
     wget -q https://ccb.jhu.edu/software/bracken/dl/minikraken_8GB_100mers_distrib.txt /bifrost_resources/minikraken/minikraken_100mers_distrib.txt && \
     chmod +r /bifrost_resources/minikraken/minikraken_100mers_distrib.txt;
 #- Additional resources (files/DBs): end -----------------------------------------------------------
 
-#- Additional initialization: start ----------------------------------------------------------------
-# None
-#- Additional initialization: end ------------------------------------------------------------------
+#- Source code:start -------------------------------------------------------------------------------
+RUN cd /bifrost && \
+    git clone --branch ${version} https://github.com/ssi-dk/${full_name}.git ${name};
+#- Source code:end ---------------------------------------------------------------------------------
 
 #- Set up entry point:start ------------------------------------------------------------------------
 ENV PATH /bifrost/${name}/:$PATH
