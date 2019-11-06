@@ -25,8 +25,8 @@ RUN cd /bifrost_resources && \
     tar -zxf minikraken_20171019_8GB.tgz --strip-components=1 && \
     rm minikraken_20171019_8GB.tgz
 RUN cd /bifrost_resources && \
-    wget -q https://ccb.jhu.edu/software/bracken/dl/minikraken_8GB_100mers_distrib.txt /bifrost_resources/minikraken/minikraken_100mers_distrib.txt && \
-    chmod +r /bifrost_resources/minikraken/minikraken_100mers_distrib.txt;
+    wget -O minikraken_100mers_distrib.txt -q https://ccb.jhu.edu/software/bracken/dl/minikraken_8GB_100mers_distrib.txt && \
+    chmod +r minikraken_100mers_distrib.txt;
 #- Additional resources (files/DBs): end -----------------------------------------------------------
 
 #- Source code:start -------------------------------------------------------------------------------
