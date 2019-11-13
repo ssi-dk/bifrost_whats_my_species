@@ -20,7 +20,7 @@ RUN \
 
 #- Additional resources (files/DBs): start ---------------------------------------------------------
 RUN cd /bifrost_resources && \
-    mkdir minikraken && \
+    mkdir minikraken && cd minikraken && \
     wget -q https://ccb.jhu.edu/software/kraken/dl/minikraken_20171019_8GB.tgz &&\
     tar -zxf minikraken_20171019_8GB.tgz --strip-components=1 && \
     rm minikraken_20171019_8GB.tgz
