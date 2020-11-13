@@ -4,7 +4,7 @@ from bifrostlib import datahandling
 def extract_bracken_txt(sampleComponentObj):
     summary, results, file_path, key = sampleComponentObj.start_data_extraction("bracken.txt")
     buffer = datahandling.read_buffer(file_path)
-    buffer = buffer.split("\n")
+    buffer = [i for i in buffer.strip().split("\n")]
     number_of_entries = min(len(buffer) - 1, 2)
     if number_of_entries > 0:
         for i in range(1, 1 + number_of_entries):  # skip first line as it's header
