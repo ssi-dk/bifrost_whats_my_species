@@ -1,95 +1,123 @@
 #- Templated section: start ------------------------------------------------------------------------
 import os
-from bifrostlib import datahandling
+import sys
+import traceback
 
-
+from bifrostlib.datahandling import SampleReference
+from bifrostlib.datahandling import Sample
+from bifrostlib.datahandling import ComponentReference
+from bifrostlib.datahandling import Component
+from bifrostlib.datahandling import SampleComponentReference
+from bifrostlib.datahandling import SampleComponent
 os.umask(0o2)
-bifrost_sampleComponentObj = datahandling.SampleComponentObj(config["sample_id"], config["component_id"])
-sample_name, component_name, dockerfile, options, bifrost_resources = bifrost_sampleComponentObj.load()
-bifrost_sampleComponentObj.path = os.path.join(os.getcwd(), component_name)
-bifrost_sampleComponentObj.started()
 
+try:
+    #TODO: fix this, it looks like sample isnt being made properly
+    sample_ref = SampleReference(_id=config.get('sample_id', None), name=config.get('sample_name', None))
+    sample:Sample = Sample.load(sample_ref) # schema 2.1
+    if sample is None:
+        raise Exception("invalid sample passed")
+    component_ref = ComponentReference(name=config['component_name'])
+    component:Component = Component.load(reference=component_ref) # schema 2.1
+    if component is None:
+        raise Exception("invalid component passed")
+    samplecomponent_ref = SampleComponentReference(name=SampleComponentReference.name_generator(sample.to_reference(), component.to_reference()))
+    samplecomponent = SampleComponent.load(samplecomponent_ref)
+    if samplecomponent is None:
+        samplecomponent:SampleComponent = SampleComponent(sample_reference=sample.to_reference(), component_reference=component.to_reference()) # schema 2.1
+    samplecomponent['status'] = "Running"
+    samplecomponent.save()
+except Exception as error:
+    print(traceback.format_exc(), file=sys.stderr)
+    raise Exception("failed to set sample, component and/or samplecomponent")
 
 onerror:
-    # Temp fix
-    bifrost_sampleComponentObj.check_requirements()
-    bifrost_sampleComponentObj.failure()
-
+    if not samplecomponent.has_requirements():
+        samplecomponent['status'] = "Requirements not met"
+    if samplecomponent['status'] == "Running":
+        samplecomponent['status'] = "Failure"
+        samplecomponent.save()
 
 rule all:
     input:
         # file is defined by datadump function
-        component_name + "/datadump_complete"
-
+        f"{component['name']}/datadump_complete"
+    run:
+        samplecomponent["status"] = "Success"
+        samplecomponent.save()
 
 rule setup:
     output:
-        init_file = touch(
-            temp(component_name + "/initialized")),
+        init_file = touch(temp(f"{component['name']}/initialized")),
     params:
-        folder = component_name
+        folder = component['name']
+    run:
+        samplecomponent['path'] = os.path.join(os.getcwd(), component['name'])
+        samplecomponent.save()
 
 
 rule_name = "check_requirements"
 rule check_requirements:
     message:
-        "Running step:" + rule_name
+        f"Running step:{rule_name}"
     log:
-        out_file = component_name + "/log/" + rule_name + ".out.log",
-        err_file = component_name + "/log/" + rule_name + ".err.log",
+        out_file = f"{component['name']}/log/{rule_name}.out.log",
+        err_file = f"{component['name']}/log/{rule_name}.err.log",
     benchmark:
-        component_name + "/benchmarks/" + rule_name + ".benchmark"
+        f"{component['name']}/benchmarks/{rule_name}.benchmark"
     input:
         folder = rules.setup.output.init_file,
     output:
-        check_file = component_name + "/requirements_met",
+        check_file = f"{component['name']}/requirements_met",
     params:
-        bifrost_sampleComponentObj
+        samplecomponent
     run:
-        bifrost_sampleComponentObj.check_requirements()
+        if not samplecomponent.has_requirements():
+            samplecomponent['status'] = "Requirements not met"
+            samplecomponent.save()
+        else:
+            with open(output.check_file, "w") as fh:
+                fh.write("")
+
 #- Templated section: end --------------------------------------------------------------------------
 
 #* Dynamic section: start **************************************************************************
 rule_name = "contaminant_check__classify_reads_kraken_minikraken_db"
 rule contaminant_check__classify_reads_kraken_minikraken_db:
-    # Static
     message:
-        "Running step:" + rule_name
+        f"Running step:{rule_name}"
     log:
-        out_file = rules.setup.params.folder + "/log/" + rule_name + ".out.log",
-        err_file = rules.setup.params.folder + "/log/" + rule_name + ".err.log",
+        out_file = f"{component['name']}/log/{rule_name}.out.log",
+        err_file = f"{component['name']}/log/{rule_name}.err.log",
     benchmark:
-        rules.setup.params.folder + "/benchmarks/" + rule_name + ".benchmark"
-    # Dynamic
+        f"{component['name']}/benchmarks/{rule_name}.benchmark"
     input:
         rules.check_requirements.output.check_file,
-        reads = bifrost_sampleComponentObj.get_reads()
+        reads = sample['categories']['paired_reads']['summary']['data']
     output:
-        kraken_report = rules.setup.params.folder + "/kraken_report.txt"
+        kraken_report = f"{component['name']}/kraken_report.txt"
     params:
-        db = bifrost_resources["kraken_database"]
+        db = component["resources"]["kraken_database"]
     shell:
         "kraken -db {params.db} {input.reads} 2> {log.err_file} | kraken-report -db {params.db} 1> {output.kraken_report}"
 
 
 rule_name = "contaminant_check__determine_species_bracken_on_minikraken_results"
 rule contaminant_check__determine_species_bracken_on_minikraken_results:
-    # Static
     message:
-        "Running step:" + rule_name
+        f"Running step:{rule_name}"
     log:
-        out_file = rules.setup.params.folder + "/log/" + rule_name + ".out.log",
-        err_file = rules.setup.params.folder + "/log/" + rule_name + ".err.log",
+        out_file = f"{component['name']}/log/{rule_name}.out.log",
+        err_file = f"{component['name']}/log/{rule_name}.err.log",
     benchmark:
-        rules.setup.params.folder + "/benchmarks/" + rule_name + ".benchmark"
-    # Dynamic
+        f"{component['name']}/benchmarks/{rule_name}.benchmark"
     input:
         kraken_report = rules.contaminant_check__classify_reads_kraken_minikraken_db.output.kraken_report,
     output:
-        bracken = rules.setup.params.folder + "/bracken.txt",
-        kraken_report_bracken = rules.setup.params.folder + "/kraken_report_bracken.txt"
+        bracken = f"{component['name']}/bracken.txt",
+        kraken_report_bracken = f"{component['name']}/kraken_report_bracken.txt"
     params:
-        kmer_dist = bifrost_resources["kraken_kmer_dist"]
+        kmer_dist = component["resources"]["kraken_kmer_dist"]
     shell:
         """
         est_abundance.py -i {input.kraken_report} -k {params.kmer_dist} -o {output.bracken} 1> {log.out_file} 2> {log.err_file}
@@ -100,22 +128,21 @@ rule contaminant_check__determine_species_bracken_on_minikraken_results:
 #- Templated section: start ------------------------------------------------------------------------
 rule_name = "datadump"
 rule datadump:
-    # Static
     message:
-        "Running step:" + rule_name
+        f"Running step:{rule_name}"
     log:
-        out_file = component_name + "/log/" + rule_name + ".out.log",
-        err_file = component_name + "/log/" + rule_name + ".err.log",
+        out_file = f"{component['name']}/log/{rule_name}.out.log",
+        err_file = f"{component['name']}/log/{rule_name}.err.log",
     benchmark:
-        component_name + "/benchmarks/" + rule_name + ".benchmark"
+        f"{component['name']}/benchmarks/{rule_name}.benchmark"
     input:
         #* Dynamic section: start ******************************************************************
-        rules.contaminant_check__determine_species_bracken_on_minikraken_results.output.bracken  # Needs to be output of final rule
+        rules.contaminant_check__determine_species_bracken_on_minikraken_results.output.kraken_report_bracken  # Needs to be output of final rule
         #* Dynamic section: end ********************************************************************
     output:
         complete = rules.all.input
     params:
-        sampleComponentObj = bifrost_sampleComponentObj
+        samplecomponent_ref_json = samplecomponent.to_reference().json
     script:
         os.path.join(os.path.dirname(workflow.snakefile), "datadump.py")
 #- Templated section: end --------------------------------------------------------------------------

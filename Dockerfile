@@ -1,68 +1,88 @@
-# This is intended to run in Github Actions
-# Arg can be set to dev for testing purposes
+# This is intended to run in Local Development (dev) and Github Actions (test/prod)
+# BUILD_ENV options (dev, test, prod) dev for local testing and test for github actions testing on prod ready code
 ARG BUILD_ENV="prod"
-ARG MAINTAINER="kimn@ssi.dk"
-ARG NAME="bifrost_whats_my_species"
+ARG MAINTAINER="kimn@ssi.dk;"
+ARG BIFROST_COMPONENT_NAME="bifrost_run_launcher"
+ARG FORCE_DOWNLOAD=true
 
-# For dev build include testing modules via pytest done on github and in development.
-# Watchdog is included for docker development (intended method) and should preform auto testing 
-# while working on *.py files
-#
-# Test data is in bifrost_run_launcher:dev
-#- Source code (development):start------------------------------------------------------------------
-FROM ssidk/bifrost_run_launcher:dev as build_dev
-ONBUILD ARG NAME
-ONBUILD COPY . /${NAME}
-ONBUILD WORKDIR /${NAME}
-ONBUILD RUN \
-    pip install yq; \
-    yq -Y -i '.version.code |= "dev"' ${NAME}/config.yaml; \
-    pip install -r requirements.dev.txt;
-#- Source code (development):end--------------------------------------------------------------------
 
-#- Source code (productopm):start-------------------------------------------------------------------
-FROM continuumio/miniconda3:4.7.10 as build_prod
-ONBUILD ARG NAME
-ONBUILD WORKDIR ${NAME}
-ONBUILD COPY ${NAME} ${NAME}
-# ONBUILD COPY resources resources
-ONBUILD COPY setup.py setup.py
-ONBUILD COPY requirements.txt requirements.txt
-ONBUILD RUN \
-    pip install -r requirements.txt
-#- Source code (productopm):end---------------------------------------------------------------------
-
-#- Use development or production to and add info: start---------------------------------------------
-FROM build_${BUILD_ENV}
-ARG NAME
+#---------------------------------------------------------------------------------------------------
+# Programs for all environments
+#---------------------------------------------------------------------------------------------------
+FROM continuumio/miniconda3:4.8.2 as build_base
+ARG BIFROST_COMPONENT_NAME
+ARG FORCE_DOWNLOAD
 LABEL \
-    name=${NAME} \
-    description="Docker environment for ${NAME}" \
+    BIFROST_COMPONENT_NAME=${BIFROST_COMPONENT_NAME} \
+    description="Docker environment for ${BIFROST_COMPONENT_NAME}" \
     environment="${BUILD_ENV}" \
     maintainer="${MAINTAINER}"
-#- Use development or production to and add info: end---------------------------------------------
-
-#- Tools to install:start---------------------------------------------------------------------------
 RUN \
     conda install -yq -c conda-forge -c bioconda -c default snakemake-minimal==5.7.1; \
     conda install -yq -c conda-forge -c bioconda -c defaults kraken==1.1.1; \
-    conda install -yq -c conda-forge -c bioconda -c defaults bracken==1.0.0; \
-    pip list;
-#- Tools to install:end ----------------------------------------------------------------------------
+    conda install -yq -c conda-forge -c bioconda -c defaults bracken==1.0.0;
 
-#- Additional resources (files/DBs): start ---------------------------------------------------------
-WORKDIR /${NAME}/resources/minikraken
+
+#---------------------------------------------------------------------------------------------------
+# Base for dev environement
+#---------------------------------------------------------------------------------------------------
+FROM continuumio/miniconda3:4.8.2 as build_dev
+ARG BIFROST_COMPONENT_NAME
+COPY --from=build_base / /
+COPY /components/${BIFROST_COMPONENT_NAME} /bifrost/components/${BIFROST_COMPONENT_NAME}
+COPY /lib/bifrostlib /bifrost/lib/bifrostlib
+WORKDIR /bifrost/components/${BIFROST_COMPONENT_NAME}/
 RUN \
+    pip install -r requirements.txt; \
+    pip install --no-cache -e file:///bifrost/lib/bifrostlib; \
+    pip install --no-cache -e file:///bifrost/components/${BIFROST_COMPONENT_NAME}/
+
+#---------------------------------------------------------------------------------------------------
+# Base for production environment
+#---------------------------------------------------------------------------------------------------
+FROM continuumio/miniconda3:4.8.2 as build_prod
+ARG BIFROST_COMPONENT_NAME
+COPY --from=build_base / /
+WORKDIR /bifrost/components/${BIFROST_COMPONENT_NAME}
+COPY ./ ./
+RUN \
+    pip install file:///bifrost/components/${BIFROST_COMPONENT_NAME}/
+
+#---------------------------------------------------------------------------------------------------
+# Base for test environment (prod with tests)
+#---------------------------------------------------------------------------------------------------
+FROM continuumio/miniconda3:4.8.2 as build_test
+ARG BIFROST_COMPONENT_NAME
+COPY --from=build_base / /
+WORKDIR /bifrost/components/${BIFROST_COMPONENT_NAME}
+COPY ./ ./
+RUN \
+    pip install -r requirements.txt \
+    pip install file:///bifrost/components/${BIFROST_COMPONENT_NAME}/
+
+
+#---------------------------------------------------------------------------------------------------
+# Additional resources
+# NOTE: with dev the resources folder is copied so many resources may already exist and you can skip 
+# the download step here. Code has been added for this but it should be made more general and robust
+# Right now it is handled with a FORCE_DOWNLOAD variable and a directory check
+#---------------------------------------------------------------------------------------------------
+FROM build_${BUILD_ENV}
+WORKDIR /bifrost/components/${BIFROST_COMPONENT_NAME}/resources
+RUN \
+    if [ ${FORCE_DOWNLOAD} = true ]; then \
+    mkdir minikraken && cd minikraken && \
     wget -q https://ccb.jhu.edu/software/kraken/dl/minikraken_20171019_8GB.tgz && \
     tar -zxf minikraken_20171019_8GB.tgz --strip-components=1 && \
-    rm minikraken_20171019_8GB.tgz
-WORKDIR /${NAME}/resources/
-RUN \
+    rm minikraken_20171019_8GB.tgz && \
     wget -O minikraken_100mers_distrib.txt -q https://ccb.jhu.edu/software/bracken/dl/minikraken_8GB_100mers_distrib.txt && \
-    chmod +r minikraken_100mers_distrib.txt;
-#- Additional resources (files/DBs): end -----------------------------------------------------------
+    chmod +r minikraken_100mers_distrib.txt; \
+    fi;
 
-#- Set up entry point:start ------------------------------------------------------------------------
+
+#---------------------------------------------------------------------------------------------------
+# Run and entry commands
+#---------------------------------------------------------------------------------------------------
+WORKDIR /bifrost/components/${BIFROST_COMPONENT_NAME}
 ENTRYPOINT ["python3", "-m", "bifrost_whats_my_species"]
 CMD ["python3", "-m", "bifrost_whats_my_species", "--help"]
-#- Set up entry point:end --------------------------------------------------------------------------
