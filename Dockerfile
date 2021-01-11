@@ -2,7 +2,7 @@
 # BUILD_ENV options (dev, test, prod) dev for local testing and test for github actions testing on prod ready code
 ARG BUILD_ENV="prod"
 ARG MAINTAINER="kimn@ssi.dk;"
-ARG BIFROST_COMPONENT_NAME="bifrost_run_launcher"
+ARG BIFROST_COMPONENT_NAME="bifrost_whats_my_species"
 ARG FORCE_DOWNLOAD=true
 
 
