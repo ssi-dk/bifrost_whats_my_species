@@ -10,14 +10,15 @@ ARG FORCE_DOWNLOAD=true
 # Programs for all environments
 #---------------------------------------------------------------------------------------------------
 FROM continuumio/miniconda3:4.8.2 as build_base
-ARG BIFROST_COMPONENT_NAME
-ARG FORCE_DOWNLOAD
-LABEL \
+ONBUILD ARG BIFROST_COMPONENT_NAME
+ONBUILD ARG BUILD_ENV
+ONBUILD ARG MAINTAINER
+ONBUILD LABEL \
     BIFROST_COMPONENT_NAME=${BIFROST_COMPONENT_NAME} \
     description="Docker environment for ${BIFROST_COMPONENT_NAME}" \
     environment="${BUILD_ENV}" \
     maintainer="${MAINTAINER}"
-RUN \
+ONBUILD RUN \
     conda install -yq -c conda-forge -c bioconda -c default snakemake-minimal==5.7.1; \
     conda install -yq -c conda-forge -c bioconda -c defaults kraken==1.1.1; \
     conda install -yq -c conda-forge -c bioconda -c defaults bracken==1.0.0;
@@ -27,12 +28,11 @@ RUN \
 # Base for dev environement
 #---------------------------------------------------------------------------------------------------
 FROM continuumio/miniconda3:4.8.2 as build_dev
-ARG BIFROST_COMPONENT_NAME
-COPY --from=build_base / /
-COPY /components/${BIFROST_COMPONENT_NAME} /bifrost/components/${BIFROST_COMPONENT_NAME}
-COPY /lib/bifrostlib /bifrost/lib/bifrostlib
-WORKDIR /bifrost/components/${BIFROST_COMPONENT_NAME}/
-RUN \
+ONBUILD ARG BIFROST_COMPONENT_NAME
+ONBUILD COPY --from=build_base / /
+ONBUILD COPY /components/${BIFROST_COMPONENT_NAME} /bifrost/components/${BIFROST_COMPONENT_NAME}
+ONBUILD WORKDIR /bifrost/components/${BIFROST_COMPONENT_NAME}/
+ONBUILD RUN \
     pip install -r requirements.txt; \
     pip install --no-cache -e file:///bifrost/lib/bifrostlib; \
     pip install --no-cache -e file:///bifrost/components/${BIFROST_COMPONENT_NAME}/
@@ -41,22 +41,22 @@ RUN \
 # Base for production environment
 #---------------------------------------------------------------------------------------------------
 FROM continuumio/miniconda3:4.8.2 as build_prod
-ARG BIFROST_COMPONENT_NAME
-COPY --from=build_base / /
-WORKDIR /bifrost/components/${BIFROST_COMPONENT_NAME}
-COPY ./ ./
-RUN \
+ONBUILD ARG BIFROST_COMPONENT_NAME
+ONBUILD COPY --from=build_base / /
+ONBUILD WORKDIR /bifrost/components/${BIFROST_COMPONENT_NAME}
+ONBUILD COPY ./ ./
+ONBUILD RUN \
     pip install file:///bifrost/components/${BIFROST_COMPONENT_NAME}/
 
 #---------------------------------------------------------------------------------------------------
 # Base for test environment (prod with tests)
 #---------------------------------------------------------------------------------------------------
 FROM continuumio/miniconda3:4.8.2 as build_test
-ARG BIFROST_COMPONENT_NAME
-COPY --from=build_base / /
-WORKDIR /bifrost/components/${BIFROST_COMPONENT_NAME}
-COPY ./ ./
-RUN \
+ONBUILD ARG BIFROST_COMPONENT_NAME
+ONBUILD COPY --from=build_base / /
+ONBUILD WORKDIR /bifrost/components/${BIFROST_COMPONENT_NAME}
+ONBUILD COPY ./ ./
+ONBUILD RUN \
     pip install -r requirements.txt \
     pip install file:///bifrost/components/${BIFROST_COMPONENT_NAME}/
 
@@ -68,8 +68,9 @@ RUN \
 # Right now it is handled with a FORCE_DOWNLOAD variable and a directory check
 #---------------------------------------------------------------------------------------------------
 FROM build_${BUILD_ENV}
-WORKDIR /bifrost/components/${BIFROST_COMPONENT_NAME}/resources
-RUN \
+ONBUILD ARG BIFROST_COMPONENT_NAME
+ONBUILD WORKDIR /bifrost/components/${BIFROST_COMPONENT_NAME}/resources
+ONBUILD RUN \
     if [ ${FORCE_DOWNLOAD} = true ]; then \
     mkdir minikraken && cd minikraken && \
     wget -q https://ccb.jhu.edu/software/kraken/dl/minikraken_20171019_8GB.tgz && \
