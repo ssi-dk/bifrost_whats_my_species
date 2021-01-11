@@ -52,8 +52,9 @@ def species_math(species_detection: Category, results: Dict, component_name: str
 
 def set_sample_species(species_detection: Category, sample: Sample) -> None:
     sample_info = sample.get_category("sample_info")
-    if sample_info.get("provided_species", None) is not None:
-        species_detection["summary"]["species"] = sample_info["provided_species"]
+    if sample_info is not None:
+        if sample_info.get("provided_species", None) is not None:
+            species_detection["summary"]["species"] = sample_info["provided_species"]
     else:
         species_detection["summary"]["species"] = species_detection["summary"].get("detected_species", None)
 
@@ -76,10 +77,9 @@ def datadump(samplecomponent_ref_json: Dict):
     species_math(species_detection, samplecomponent["results"], samplecomponent["component"]["name"])
     set_sample_species(species_detection, sample)
     samplecomponent.set_category(species_detection)
-    samplecomponent["status"] = "Success"
-    samplecomponent.save()
     sample.set_category(species_detection)
-    sample.save()
+    samplecomponent.save_files()
+    common.set_status_and_save(sample, samplecomponent, "Success")
     with open(os.path.join(samplecomponent["component"]["name"], "datadump_complete"), "w+") as fh:
         fh.write("done")
 
