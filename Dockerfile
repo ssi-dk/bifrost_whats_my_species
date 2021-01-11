@@ -69,6 +69,7 @@ ONBUILD RUN \
 #---------------------------------------------------------------------------------------------------
 FROM build_${BUILD_ENV}
 ONBUILD ARG BIFROST_COMPONENT_NAME
+ONBUILD ARG FORCE_DOWNLOAD
 ONBUILD WORKDIR /bifrost/components/${BIFROST_COMPONENT_NAME}/resources
 ONBUILD RUN \
     if [ ${FORCE_DOWNLOAD} = true ]; then \
