@@ -29,7 +29,7 @@ ONBUILD RUN \
 #---------------------------------------------------------------------------------------------------
 FROM continuumio/miniconda3:4.8.2 as build_dev
 ONBUILD ARG BIFROST_COMPONENT_NAME
-ONBUILD ARG FORCE_DOWNLOAD=true
+ONBUILD ARG FORCE_DOWNLOAD
 ONBUILD COPY --from=build_base / /
 ONBUILD COPY /components/${BIFROST_COMPONENT_NAME} /bifrost/components/${BIFROST_COMPONENT_NAME}
 ONBUILD WORKDIR /bifrost/components/${BIFROST_COMPONENT_NAME}/
@@ -43,7 +43,7 @@ ONBUILD RUN \
 #---------------------------------------------------------------------------------------------------
 FROM continuumio/miniconda3:4.8.2 as build_prod
 ONBUILD ARG BIFROST_COMPONENT_NAME
-ONBUILD ARG FORCE_DOWNLOAD=true
+ONBUILD ARG FORCE_DOWNLOAD
 ONBUILD COPY --from=build_base / /
 ONBUILD WORKDIR /bifrost/components/${BIFROST_COMPONENT_NAME}
 ONBUILD COPY ./ ./
