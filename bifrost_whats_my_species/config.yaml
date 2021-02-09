@@ -1,16 +1,16 @@
 
 #-Basic info----------------------------------------------------------------------------------------
 display_name: whats_my_species
-name: whats_my_species__2.1.1__171019
+name: whats_my_species__v2_2_1__171019
 version:
-  schema: 2.0
-  code: 2.1.1
-  resource: 171019
+  schema: ["v2_1_0"]
+  code: v2_2_1
+  resource: "171019"
 #---------------------------------------------------------------------------------------------------
 
 #-Details-------------------------------------------------------------------------------------------
 details:
-  target: sample
+  target: [sample]
   description: >
     This runs kraken/bracken on a sample in order to determine the species found in the sample. Reads
     are first filtered using bbduk. The species is then set for the sample from this.
@@ -32,14 +32,14 @@ options:
 
 #-Required resource files---------------------------------------------------------------------------
 resources:
-  kraken_database: "/bifrost_whats_my_species/resources/minikraken/"
-  kraken_kmer_dist: "/bifrost_whats_my_species/resources/minikraken_100mers_distrib.txt"
+  kraken_database: "/bifrost/components/bifrost_whats_my_species/resources/minikraken/"
+  kraken_kmer_dist: "/bifrost/components/bifrost_whats_my_species/resources/minikraken/minikraken_100mers_distrib.txt"
 #---------------------------------------------------------------------------------------------------
 
 #-Requirements to run component---------------------------------------------------------------------
 requirements:
   sample:
-    properties:
+    categories:
       paired_reads:
         summary:
           data:
