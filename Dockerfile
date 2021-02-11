@@ -71,10 +71,10 @@ ONBUILD RUN \
 # Right now it is handled with a FORCE_DOWNLOAD variable and a directory check
 #---------------------------------------------------------------------------------------------------
 FROM build_${BUILD_ENV}
-ONBUILD ARG BIFROST_COMPONENT_NAME
-ONBUILD ARG FORCE_DOWNLOAD
-ONBUILD WORKDIR /bifrost/components/${BIFROST_COMPONENT_NAME}/resources
-ONBUILD RUN \
+ARG BIFROST_COMPONENT_NAME
+ARG FORCE_DOWNLOAD
+WORKDIR /bifrost/components/${BIFROST_COMPONENT_NAME}/resources
+RUN \
     mkdir minikraken && cd minikraken && \
     wget -q https://ccb.jhu.edu/software/kraken/dl/minikraken_20171019_8GB.tgz && \
     tar -zxf minikraken_20171019_8GB.tgz --strip-components=1 && \
