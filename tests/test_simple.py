@@ -21,6 +21,7 @@ def test_connection():
     assert "TEST" in os.environ['BIFROST_DB_KEY'].upper()  # A very basic piece of protection ensuring the word test is in the DB
 
 class TestBifrostMinReadCheck:
+    component_name = "whats_my_species__v2_2_6__171019"
     current_dir = os.getcwd()
     test_dir = "/bifrost/test_data/output/test__whats_my_species/"
     json_entries = [
@@ -81,8 +82,8 @@ class TestBifrostMinReadCheck:
             "--outdir", self.test_dir
         ]
         launcher.main(args=test_args)
-        assert os.path.isfile(f"{self.test_dir}/whats_my_species__v2_2_1__171019/datadump_complete")
+        assert os.path.isfile(f"{self.test_dir}/{self.component_name}/datadump_complete")
         shutil.rmtree(self.test_dir)
-        assert not os.path.isdir(f"{self.test_dir}/whats_my_species__v2_2_1__171019")
+        assert not os.path.isdir(f"{self.test_dir}/{self.component_name}")
 
 
