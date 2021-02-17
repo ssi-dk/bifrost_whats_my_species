@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2_2_2] - 2021-02-17
+- Bump bifrostlib to fix datetime bug
 ## [v2_2_5] - 2021-02-11
 ### Changed
 - Github actions
