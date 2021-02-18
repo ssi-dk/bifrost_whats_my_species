@@ -17,7 +17,7 @@ jobs:
       id: getversion
       run: |
         echo "CODE_VERSION=$(sed -n 's/^\ \ code:\ \(.*\)/\1/p' $REPOSITORY_NAME/config.yaml)" >> $GITHUB_ENV
-        echo "RESOURCE_VERSION=$(sed -n 's/^\ \ resource:\ \"?\(.*\)\"?/\1/p' $REPOSITORY_NAME/config.yaml)" >> $GITHUB_ENV
+        echo "RESOURCE_VERSION=$(sed -n 's/^\ \ resource:\ "*\([a-zA-Z0-9\-\_]*\)"*/\1/p' $REPOSITORY_NAME/config.yaml)" >> $GITHUB_ENV
     - name: Build and push Docker images (to test)
       if: github.ref == 'refs/heads/test'
       uses: docker/build-push-action@v1.1.0

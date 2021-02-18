@@ -4,7 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [v2_2_2] - 2021-02-17
+## [v2_2_10] - 2021-02-18
+- Fix resource version not appearing in docker image
+### Changed
+- .github/workflows/docker_build_and_push_to_dockerhub.yml
+  - Adjusted regex, viable resources now follow this pattern "*\([a-zA-Z0-9\-\_]*\)"*
+## [v2_2_9] - 2021-02-17
 - Bump bifrostlib to fix datetime bug
 ## [v2_2_5] - 2021-02-11
 ### Changed
