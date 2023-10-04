@@ -36,6 +36,12 @@ onerror:
     if samplecomponent['status'] == "Running":
         common.set_status_and_save(sample, samplecomponent, "Failure")
 
+
+envvars:
+    "BIFROST_INSTALL_DIR",
+    "CONDA_PREFIX"
+
+
 rule all:
     input:
         # file is defined by datadump function
@@ -91,7 +97,7 @@ rule contaminant_check__classify_reads_kraken_minikraken_db:
     output:
         kraken_report = f"{component['name']}/kraken_report.txt"
     params:
-        db = component["resources"]["kraken_database"]
+        db = f"{os.environ['BIFROST_INSTALL_DIR']}/bifrost/components/bifrost_{component['display_name']}/{component['resources']['kraken_database']}"
     shell:
         "kraken -db {params.db} {input.reads} 2> {log.err_file} | kraken-report -db {params.db} 1> {output.kraken_report}"
 
@@ -111,7 +117,8 @@ rule contaminant_check__determine_species_bracken_on_minikraken_results:
         bracken = f"{component['name']}/bracken.txt",
         kraken_report_bracken = f"{component['name']}/kraken_report_bracken.txt"
     params:
-        kmer_dist = component["resources"]["kraken_kmer_dist"]
+        #kmer_dist = component["resources"]["kraken_kmer_dist"]
+        kmer_dist = f"{os.environ['BIFROST_INSTALL_DIR']}/bifrost/components/bifrost_{component['display_name']}/{component['resources']['kraken_kmer_dist']}"
     shell:
         """
         est_abundance.py -i {input.kraken_report} -k {params.kmer_dist} -o {output.bracken} 1> {log.out_file} 2> {log.err_file}

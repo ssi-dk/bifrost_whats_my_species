@@ -1,0 +1,20 @@
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - snakemake-minimal==5.31.1 # updated from 5.7.1 because of envvars
+  - kraken==1.1.1
+  - bracken==1.0.0
+  - tar
+  - pip
+  - pip:
+    - pytest
+    - pytest-cov
+    - pytest-profiling
+    - coverage
+    - pyyaml
+    - argh
+    - watchdog
+    - bifrostlib
+    - -e .

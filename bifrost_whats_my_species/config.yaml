@@ -1,10 +1,10 @@
 
 #-Basic info----------------------------------------------------------------------------------------
 display_name: whats_my_species
-name: whats_my_species__v2_2_11__171019
+name: whats_my_species__v2.2.11
 version:
   schema: ["v2_1_0"]
-  code: v2_2_11
+  code: v2.2.11
   resource: "171019"
 #---------------------------------------------------------------------------------------------------
 
@@ -32,8 +32,8 @@ options:
 
 #-Required resource files---------------------------------------------------------------------------
 resources:
-  kraken_database: "/bifrost/components/bifrost_whats_my_species/resources/minikraken/"
-  kraken_kmer_dist: "/bifrost/components/bifrost_whats_my_species/resources/minikraken/minikraken_100mers_distrib.txt"
+  kraken_database: "resources/minikraken/"
+  kraken_kmer_dist: "resources/minikraken/minikraken_100mers_distrib.txt"
 #---------------------------------------------------------------------------------------------------
 
 #-Requirements to run component---------------------------------------------------------------------
