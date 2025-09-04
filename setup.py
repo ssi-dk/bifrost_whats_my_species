@@ -2,7 +2,7 @@ from setuptools import setup, find_namespace_packages
 
 setup(
     name="bifrost_whats_my_species",
-    version="2.2.11",
+    version="2.2.12",
     description="Datahandling functions for bifrost (later to be API interface)",
     url="https://github.com/ssi-dk/bifrost_whats_my_species",
     author="Kim Ng, Martin Basterrechea",
