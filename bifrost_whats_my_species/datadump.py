@@ -54,7 +54,6 @@ def species_math(
         "status" not in results[kraken_report_bracken_key]
         and "status" not in results[bracken_key]
         and "species_1_count" in results[bracken_key]
-        and "species_2_count" in results[bracken_key]
     ):
         species_detection["summary"]["percent_unclassified"] = results[
             kraken_report_bracken_key
@@ -71,15 +70,16 @@ def species_math(
         species_detection["summary"]["name_classified_species_1"] = results[
             bracken_key
         ]["species_1_name"]
-        species_detection["summary"]["percent_classified_species_2"] = results[
-            bracken_key
-        ]["species_2_count"] / (
-            results[kraken_report_bracken_key]["unclassified_count"]
-            + results[kraken_report_bracken_key]["root"]
-        )
-        species_detection["summary"]["name_classified_species_2"] = results[
-            bracken_key
-        ]["species_2_name"]
+        if("species_2_count" in results[bracken_key]):
+            species_detection["summary"]["percent_classified_species_2"] = results[
+                bracken_key
+            ]["species_2_count"] / (
+                results[kraken_report_bracken_key]["unclassified_count"]
+                + results[kraken_report_bracken_key]["root"]
+            )
+            species_detection["summary"]["name_classified_species_2"] = results[
+                bracken_key
+            ]["species_2_name"]
         species_detection["summary"]["detected_species"] = species_detection["summary"][
             "name_classified_species_1"
         ]
