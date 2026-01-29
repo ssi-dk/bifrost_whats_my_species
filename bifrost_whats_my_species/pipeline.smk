@@ -93,14 +93,13 @@ rule contaminant_check__classify_reads_kraken_minikraken_db:
         f"{component['name']}/benchmarks/{rule_name}.benchmark"
     input:
         rules.check_requirements.output.check_file,
-        reads = sample['categories']['paired_reads']['summary']['data']
+        reads = sample['categories']['paired_reads']['summary']['trimmed']
     output:
         kraken_report = f"{component['name']}/kraken_report.txt"
     params:
         db = f"{os.environ['BIFROST_INSTALL_DIR']}/bifrost/components/bifrost_{component['display_name']}/{component['resources']['kraken_database']}"
     shell:
-        "kraken -db {params.db} {input.reads} 2> {log.err_file} | kraken-report -db {params.db} 1> {output.kraken_report}"
-
+        "kraken2 --db {params.db} {input.reads} --paired --threads {threads} --report {output.kraken_report} 2> {log.err_file}"
 
 rule_name = "contaminant_check__determine_species_bracken_on_minikraken_results"
 rule contaminant_check__determine_species_bracken_on_minikraken_results:
@@ -117,11 +116,13 @@ rule contaminant_check__determine_species_bracken_on_minikraken_results:
         bracken = f"{component['name']}/bracken.txt",
         kraken_report_bracken = f"{component['name']}/kraken_report_bracken.txt"
     params:
-        #kmer_dist = component["resources"]["kraken_kmer_dist"]
         kmer_dist = f"{os.environ['BIFROST_INSTALL_DIR']}/bifrost/components/bifrost_{component['display_name']}/{component['resources']['kraken_kmer_dist']}"
+        db = f"{os.environ['BIFROST_INSTALL_DIR']}/bifrost/components/bifrost_{component['display_name']}/{component['resources']['kraken_database']}",
+        level = "S",
+        threshold = 10,
     shell:
         """
-        est_abundance.py -i {input.kraken_report} -k {params.kmer_dist} -o {output.bracken} 1> {log.out_file} 2> {log.err_file}
+        est_abundance.py -i {input.kraken_report} -k {params.kmer_dist} -o {output.bracken} -l {params.level} -t {params.threshold} 1> {log.out_file} 2> {log.err_file}
         sort -r -t$'\t' -k7 {output.bracken} -o {output.bracken}
         """
 #* Dynamic section: end ****************************************************************************
