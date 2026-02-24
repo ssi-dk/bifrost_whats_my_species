@@ -137,8 +137,9 @@ def set_sample_species(species_detection: Category, sample: Sample) -> None:
 #   MAIN ENTRY POINT
 ###############################
 
-def datadump(samplecomponent_ref_json: Dict):
-    samplecomponent_ref = SampleComponentReference(value=samplecomponent_ref_json)
+def datadump(samplecomponent_id: str):
+    #samplecomponent_ref = SampleComponentReference(value=samplecomponent_ref_json)
+    samplecomponent_ref = SampleComponentReference(_id=samplecomponent_id)
     samplecomponent = SampleComponent.load(samplecomponent_ref)
     sample = Sample.load(samplecomponent.sample)
 
@@ -175,5 +176,7 @@ def datadump(samplecomponent_ref_json: Dict):
         fh.write("done")
 
 
-datadump(snakemake.params.samplecomponent_ref_json)
+datadump(
+        snakemake.params.samplecomponent_id
+)
 

@@ -6,11 +6,13 @@ from bifrostlib import common
 from bifrostlib.datahandling import SampleReference, Sample
 from bifrostlib.datahandling import ComponentReference, Component
 from bifrostlib.datahandling import SampleComponentReference, SampleComponent
+from snakemake.io import directory
+import datetime
 
 os.umask(0o2)
 
 # -------------------------------------------------------------------------
-# INITIALIZATION (no requirement checking)
+# INITIALIZATION
 # -------------------------------------------------------------------------
 
 try:
@@ -40,8 +42,14 @@ except Exception:
     print(traceback.format_exc(), file=sys.stderr)
     raise Exception("Failed to initialize component")
 
+# -------------------------------------------------------------------------
+# ERROR HANDLING (NO REQUIREMENTS CHECK)
+# -------------------------------------------------------------------------
+
 onerror:
-    common.set_status_and_save(sample, samplecomponent, "Failure")
+    # Requirements disabled to avoid Pandas crash
+    if samplecomponent["status"] == "Running":
+        common.set_status_and_save(sample, samplecomponent, "Failure")
 
 envvars:
     "BIFROST_INSTALL_DIR",
@@ -57,12 +65,51 @@ rule all:
     run:
         common.set_status_and_save(sample, samplecomponent, "Success")
 
-rule setup:
+# -------------------------------------------------------------------------
+# TIME START
+# -------------------------------------------------------------------------
+
+rule set_time_start:
     output:
-        touch(f"{component['name']}/initialized")
+        start_file = f"{component['name']}/time_start.txt"
+    run:
+        import time
+        with open(output.start_file, "w") as fh:
+            fh.write(str(time.time()))
+
+# -------------------------------------------------------------------------
+# SETUP
+# -------------------------------------------------------------------------
+
+rule setup:
+    input:
+        rules.set_time_start.output.start_file
+    output:
+        init_file = touch(f"{component['name']}/initialized")
     run:
         samplecomponent["path"] = os.path.join(os.getcwd(), component["name"])
         samplecomponent.save()
+
+# -------------------------------------------------------------------------
+# CHECK REQUIREMENTS (DISABLED)
+# -------------------------------------------------------------------------
+
+rule_name = "check_requirements"
+rule check_requirements:
+    message:
+        f"Running step:{rule_name}"
+    log:
+        out_file = f"{component['name']}/log/{rule_name}.out.log",
+        err_file = f"{component['name']}/log/{rule_name}.err.log",
+    benchmark:
+        f"{component['name']}/benchmarks/{rule_name}.benchmark"
+    input:
+        folder = rules.setup.output.init_file
+    output:
+        check_file = touch(f"{component['name']}/requirements_met")
+    run:
+        # Requirements disabled
+        pass
 
 # -------------------------------------------------------------------------
 # KRAKEN2 CLASSIFICATION
@@ -76,12 +123,15 @@ rule kraken2_classify:
         out_file = f"{component['name']}/log/{rule_name}.out.log",
         err_file = f"{component['name']}/log/{rule_name}.err.log"
     input:
+        rules.check_requirements.output.check_file,
         reads = sample["categories"]["trimmed_reads"]["summary"]["data"]
     output:
         report = f"{component['name']}/kraken_report.txt",
         output = f"{component['name']}/kraken_output.txt",
         classified = f"{component['name']}/kraken_classified.fasta",
-        unclassified = f"{component['name']}/kraken_unclassified.fasta"
+        unclassified = f"{component['name']}/kraken_unclassified.fasta",
+        tool_version = f"{component['name']}/kraken2_version.txt",
+        threads_file = f"{component['name']}/threads_used.txt"
     params:
         db = f"{os.environ['BIFROST_INSTALL_DIR']}/bifrost/components/bifrost_{component['display_name']}/resources/minikraken2/",
         threads = 8
@@ -96,6 +146,10 @@ rule kraken2_classify:
             --unclassified-out {output.unclassified} \
             --use-names \
             1> {log.out_file} 2> {log.err_file}
+
+        echo {params.threads} > {output.threads_file}
+
+        kraken2 --version > {output.tool_version} 2>&1
         """
 
 # -------------------------------------------------------------------------
@@ -104,15 +158,16 @@ rule kraken2_classify:
 
 rule bracken:
     message:
-        f"Running step:{rule_name}"
+        f"Running step:bracken"
     log:
-        out_file = f"{component['name']}/log/{rule_name}.out.log",
-        err_file = f"{component['name']}/log/{rule_name}.err.log"
+        out_file = f"{component['name']}/log/bracken.out.log",
+        err_file = f"{component['name']}/log/bracken.err.log"
     input:
         report = rules.kraken2_classify.output.report
     output:
         bracken = temp(f"{component['name']}/bracken.txt"),
-        bracken_report = f"{component['name']}/kraken_report_bracken.txt"
+        bracken_report = f"{component['name']}/kraken_report_bracken.txt",
+        tool_version = f"{component['name']}/bracken_version.txt"
     params:
         db = f"{os.environ['BIFROST_INSTALL_DIR']}/bifrost/components/bifrost_{component['display_name']}/resources/minikraken2/",
         read_length = 150,
@@ -127,20 +182,124 @@ rule bracken:
             -l {params.level} \
             1> {log.out_file} 2> {log.err_file}
 
-        # Sort by abundance descending
         sort -r -t$'\t' -k7 {output.bracken} > {output.bracken_report}
+
+        bracken -v > {output.tool_version} 2>&1
         """
+
+# -------------------------------------------------------------------------
+# TIME END
+# -------------------------------------------------------------------------
+
+rule set_time_end:
+    input:
+        rules.bracken.output.bracken_report
+    output:
+        end_file = f"{component['name']}/time_end.txt"
+    run:
+        import time
+        with open(output.end_file, "w") as fh:
+            fh.write(str(time.time()))
+
+# -------------------------------------------------------------------------
+# GIT VERSION
+# -------------------------------------------------------------------------
+
+rule_name = "git_version"
+rule git_version:
+    message:
+        f"Running step:{rule_name}"
+    log:
+        out_file = f"{component['name']}/log/{rule_name}.out.log",
+        err_file = f"{component['name']}/log/{rule_name}.err.log",
+    benchmark:
+        f"{component['name']}/benchmarks/{rule_name}.benchmark"
+    input:
+        rules.setup.output.init_file
+    output:
+        git_hash = f"{component['name']}/git_hash.txt"
+    run:
+        import subprocess, os
+
+        snake_dir = os.path.dirname(workflow.snakefile)
+
+        try:
+            git_hash = subprocess.check_output(
+                ["git", "-C", snake_dir, "rev-parse", "HEAD"],
+                stderr=subprocess.STDOUT,
+                text=True
+            ).strip()
+        except Exception:
+            git_hash = "-"
+
+        with open(output.git_hash, "w") as fh:
+            fh.write(str(git_hash))
+
+# -------------------------------------------------------------------------
+# DUMP INFO
+# -------------------------------------------------------------------------
+
+rule dump_info:
+    input:
+        start_file = rules.set_time_start.output.start_file,
+        end_file = rules.set_time_end.output.end_file,
+        threads_file = rules.kraken2_classify.output.threads_file,
+        kraken2_version = rules.kraken2_classify.output.tool_version,
+        bracken_version = rules.bracken.output.tool_version,
+        git_hash = rules.git_version.output.git_hash
+    output:
+        runtime_flag = touch(f"{component['name']}/runtime_set")
+    run:
+        import time
+        sc = SampleComponent.load(samplecomponent.to_reference())
+
+        with open(input.start_file) as fh:
+            t_start = float(fh.read().strip())
+        with open(input.end_file) as fh:
+            t_end = float(fh.read().strip())
+        with open(input.threads_file) as fh:
+            threads_used = int(fh.read().strip())
+        with open(input.kraken2_version) as fh:
+            kraken2_version = fh.read().strip()
+        with open(input.bracken_version) as fh:
+            bracken_version = fh.read().strip()
+        with open(input.git_hash) as fh:
+            git_hash = fh.read().strip()
+
+        runtime_minutes = (t_end - t_start) / 60.0
+
+        sc["time_start"] = datetime.datetime.fromtimestamp(t_start).strftime("%Y-%m-%d %H:%M:%S")
+        sc["time_end"] = datetime.datetime.fromtimestamp(t_end).strftime("%Y-%m-%d %H:%M:%S")
+        sc["time_running"] = round(runtime_minutes, 3)
+        sc["threads_used"] = threads_used
+        sc["tool_version"] = [
+            {"kraken2": kraken2_version},
+            {"bracken": bracken_version}
+        ]
+        sc["git_hash"] = git_hash
+
+        sc.save()
 
 # -------------------------------------------------------------------------
 # DATADUMP
 # -------------------------------------------------------------------------
 
+rule_name = "datadump"
 rule datadump:
+    message:
+        f"Running step:{rule_name}"
+    log:
+        out_file = f"{component['name']}/log/{rule_name}.out.log",
+        err_file = f"{component['name']}/log/{rule_name}.err.log"
+    benchmark:
+        f"{component['name']}/benchmarks/{rule_name}.benchmark"
     input:
-        bracken_report = rules.bracken.output.bracken_report
+        rules.bracken.output.bracken_report,
+        rules.dump_info.output.runtime_flag
     output:
-        f"{component['name']}/datadump_complete"
+        complete = f"{component['name']}/datadump_complete"
     params:
-        samplecomponent_ref_json = samplecomponent.to_reference().json
+        samplecomponent_id = samplecomponent["_id"]
     script:
         os.path.join(os.path.dirname(workflow.snakefile), "datadump.py")
+
