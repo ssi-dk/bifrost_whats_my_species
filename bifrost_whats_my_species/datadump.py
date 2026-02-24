@@ -11,13 +11,15 @@ def extract_bracken_sorted(
     species_detection: Category, results: Dict, bracken_file: str
 ) -> None:
     """
-    Parse sorted Bracken output (filename provided by Snakemake).
-    Extract top 1–2 species and their fractions.
+    Parse sorted Bracken output.
+    Store ALL species rows in results[file_key]["all_species"].
+    Store top 1–2 species ONLY in summary (not in results).
     """
     file_name = os.path.basename(bracken_file)
     file_key = common.json_key_cleaner(file_name)
 
     results[file_key] = {}
+    results[file_key]["all_species"] = []
 
     with open(bracken_file, "r", encoding="utf-8") as fh:
         buffer = fh.readlines()
@@ -25,58 +27,51 @@ def extract_bracken_sorted(
     # Skip header
     entries = buffer[1:]
 
-    for i in range(min(2, len(entries))):
-        cols = entries[i].rstrip("\n").split("\t")
+    # Store ALL species rows in results
+    for line in entries:
+        cols = line.rstrip("\n").split("\t")
+        results[file_key]["all_species"].append({
+            "name": cols[0],
+            "taxonomy_id": cols[1],
+            "taxonomy_lvl": cols[2],
+            "kraken_assigned_reads": cols[3],
+            "added_reads": cols[4],
+            "new_est_reads": cols[5],
+            "fraction_total_reads": float(cols[6]),
+        })
 
-        species_name = cols[0]
-        taxonomy_id = cols[1]
-        taxonomy_lvl = cols[2]
-        kraken_assigned = cols[3]
-        added_reads = cols[4]
-        new_est_reads = cols[5]
-        fraction = float(cols[6])
+    # Store top 1–2 species ONLY in summary
+    if len(entries) > 0:
+        cols = entries[0].rstrip("\n").split("\t")
+        species_detection["summary"]["name_classified_species_1"] = cols[0]
+        species_detection["summary"]["percent_classified_species_1"] = float(cols[6])
 
-        results[file_key][f"species_{i+1}_name"] = species_name
-        results[file_key][f"species_{i+1}_taxonomy_id"] = taxonomy_id
-        results[file_key][f"species_{i+1}_taxonomy_lvl"] = taxonomy_lvl
-        results[file_key][f"species_{i+1}_kraken_assigned_reads"] = kraken_assigned
-        results[file_key][f"species_{i+1}_added_reads"] = added_reads
-        results[file_key][f"species_{i+1}_new_est_reads"] = new_est_reads
-        results[file_key][f"species_{i+1}_fraction"] = fraction
+    if len(entries) > 1:
+        cols = entries[1].rstrip("\n").split("\t")
+        species_detection["summary"]["name_classified_species_2"] = cols[0]
+        species_detection["summary"]["percent_classified_species_2"] = float(cols[6])
 
 
 def species_math(
     species_detection: Category, results: Dict, bracken_file: str
 ) -> None:
     """
-    Compute percent_classified_species_1/2 and percent_unclassified.
+    Compute percent_classified and percent_unclassified using summary fields.
     """
-    file_key = common.json_key_cleaner(os.path.basename(bracken_file))
-    r = results[file_key]
+    s = species_detection["summary"]
 
-    # Species 1
-    if "species_1_fraction" in r:
-        species_detection["summary"]["percent_classified_species_1"] = r["species_1_fraction"]
-        species_detection["summary"]["name_classified_species_1"] = r["species_1_name"]
-
-    # Species 2
-    if "species_2_fraction" in r:
-        species_detection["summary"]["percent_classified_species_2"] = r["species_2_fraction"]
-        species_detection["summary"]["name_classified_species_2"] = r["species_2_name"]
-
-    # Percent classified = sum of fractions
     total_fraction = 0.0
-    if "species_1_fraction" in r:
-        total_fraction += r["species_1_fraction"]
-    if "species_2_fraction" in r:
-        total_fraction += r["species_2_fraction"]
+    if "percent_classified_species_1" in s:
+        total_fraction += s["percent_classified_species_1"]
+    if "percent_classified_species_2" in s:
+        total_fraction += s["percent_classified_species_2"]
 
-    species_detection["summary"]["percent_classified"] = total_fraction
-    species_detection["summary"]["percent_unclassified"] = 1.0 - total_fraction
+    s["percent_classified"] = total_fraction
+    s["percent_unclassified"] = 1.0 - total_fraction
 
     # Detected species = species_1
-    if "species_1_name" in r:
-        species_detection["summary"]["detected_species"] = r["species_1_name"]
+    if "name_classified_species_1" in s:
+        s["detected_species"] = s["name_classified_species_1"]
 
 
 def set_sample_species(species_detection: Category, sample: Sample) -> None:
@@ -98,7 +93,7 @@ def datadump(samplecomponent_ref_json: Dict):
     sample = Sample.load(samplecomponent.sample)
 
     # Use Snakemake input directly
-    bracken_file = snakemake.input.bracken_report
+    bracken_file = snakemake.input[0]
 
     species_detection = samplecomponent.get_category("species_detection")
     if species_detection is None:
