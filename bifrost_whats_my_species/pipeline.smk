@@ -137,7 +137,7 @@ rule bracken:
 
 rule datadump:
     input:
-        rules.bracken.output.bracken_report
+        bracken_report = rules.bracken.output.bracken_report
     output:
         f"{component['name']}/datadump_complete"
     params:

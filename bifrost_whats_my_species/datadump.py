@@ -8,19 +8,18 @@ import os
 
 
 def extract_bracken_sorted(
-    species_detection: Category, results: Dict, component_name: str
+    species_detection: Category, results: Dict, bracken_file: str
 ) -> None:
     """
-    Parse kraken_report_bracken.txt (sorted Bracken output).
+    Parse sorted Bracken output (filename provided by Snakemake).
     Extract top 1–2 species and their fractions.
     """
-    file_name = "kraken_report_bracken.txt"
+    file_name = os.path.basename(bracken_file)
     file_key = common.json_key_cleaner(file_name)
-    file_path = os.path.join(component_name, file_name)
 
     results[file_key] = {}
 
-    with open(file_path, "r", encoding="utf-8") as fh:
+    with open(bracken_file, "r", encoding="utf-8") as fh:
         buffer = fh.readlines()
 
     # Skip header
@@ -47,13 +46,13 @@ def extract_bracken_sorted(
 
 
 def species_math(
-    species_detection: Category, results: Dict, component_name: str
+    species_detection: Category, results: Dict, bracken_file: str
 ) -> None:
     """
     Compute percent_classified_species_1/2 and percent_unclassified.
     """
-    key = common.json_key_cleaner("kraken_report_bracken.txt")
-    r = results[key]
+    file_key = common.json_key_cleaner(os.path.basename(bracken_file))
+    r = results[file_key]
 
     # Species 1
     if "species_1_fraction" in r:
@@ -98,6 +97,9 @@ def datadump(samplecomponent_ref_json: Dict):
     samplecomponent = SampleComponent.load(samplecomponent_ref)
     sample = Sample.load(samplecomponent.sample)
 
+    # Use Snakemake input directly
+    bracken_file = snakemake.input.bracken_report
+
     species_detection = samplecomponent.get_category("species_detection")
     if species_detection is None:
         species_detection = Category(
@@ -115,13 +117,13 @@ def datadump(samplecomponent_ref_json: Dict):
     extract_bracken_sorted(
         species_detection,
         samplecomponent["results"],
-        samplecomponent["component"]["name"],
+        bracken_file,
     )
 
     species_math(
         species_detection,
         samplecomponent["results"],
-        samplecomponent["component"]["name"],
+        bracken_file,
     )
 
     set_sample_species(species_detection, sample)
