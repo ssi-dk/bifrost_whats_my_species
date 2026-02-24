@@ -76,7 +76,7 @@ rule kraken2_classify:
         out_file = f"{component['name']}/log/{rule_name}.out.log",
         err_file = f"{component['name']}/log/{rule_name}.err.log"
     input:
-        contigs = sample["categories"]["contigs"]["summary"]["data"]
+        reads = sample["categories"]["trimmed_reads"]["summary"]["data"]
     output:
         report = f"{component['name']}/kraken_report.txt",
         output = f"{component['name']}/kraken_output.txt",
@@ -87,7 +87,7 @@ rule kraken2_classify:
         threads = 8
     shell:
         r"""
-        kraken2 {input.contigs} \
+        kraken2 {input.reads[0]} {input.reads[1]} \
             --db {params.db} \
             --threads {params.threads} \
             --report {output.report} \
@@ -102,7 +102,6 @@ rule kraken2_classify:
 # BRACKEN
 # -------------------------------------------------------------------------
 
-rule_name = "bracken"
 rule bracken:
     message:
         f"Running step:{rule_name}"
@@ -112,24 +111,26 @@ rule bracken:
     input:
         report = rules.kraken2_classify.output.report
     output:
-        bracken = f"{component['name']}/bracken.txt",
+        bracken = temp(f"{component['name']}/bracken.txt"),
         bracken_report = f"{component['name']}/kraken_report_bracken.txt"
     params:
-        kmer_dist = f"{os.environ['BIFROST_INSTALL_DIR']}/bifrost/components/bifrost_{component['display_name']}/resources/minikraken2/database150mers.kmer_distrib",
-        level = "S",
-        threshold = 10
+        db = f"{os.environ['BIFROST_INSTALL_DIR']}/bifrost/components/bifrost_{component['display_name']}/resources/minikraken2/",
+        read_length = 150,
+        level = "S"
     shell:
         r"""
-        est_abundance.py \
+        bracken \
+            -d {params.db} \
             -i {input.report} \
-            -k {params.kmer_dist} \
             -o {output.bracken} \
+            -r {params.read_length} \
             -l {params.level} \
-            -t {params.threshold} \
             1> {log.out_file} 2> {log.err_file}
 
-        sort -r -t$'\t' -k7 {output.bracken} -o {output.bracken_report}
+        # Sort by abundance descending
+        sort -r -t$'\t' -k7 {output.bracken} > {output.bracken_report}
         """
+
 # -------------------------------------------------------------------------
 # DATADUMP
 # -------------------------------------------------------------------------
