@@ -7,14 +7,60 @@ from typing import Dict
 import os
 
 
-def extract_bracken_sorted(
-    species_detection: Category, results: Dict, bracken_file: str
-) -> None:
+###############################
+#   HELPER FUNCTIONS (TOP LEVEL)
+###############################
+
+def split_taxon(name: str):
+    parts = name.split()
+    genus = parts[0]
+    species = parts[1] if len(parts) > 1 else ""
+    return genus, species
+
+
+def is_undefined_species(species: str):
+    return species.lower().startswith("sp.")
+
+
+def accumulate_block(all_species, start_index):
     """
-    Parse sorted Bracken output.
-    Store ALL species rows in results[file_key]["all_species"].
-    Store top 1–2 species ONLY in summary (not in results).
+    Accumulates a block of consecutive rows starting at start_index
+    using Option C rules:
+    - Same genus
+    - Species identical OR undefined ("sp.") OR same species group
+    - Stop when encountering a different defined species or genus change
     """
+    first = all_species[start_index]
+    genus1, species1 = split_taxon(first["name"])
+    accumulated = first["fraction_total_reads"]
+    block_name = first["name"]
+
+    idx = start_index + 1
+
+    while idx < len(all_species):
+        genus, species = split_taxon(all_species[idx]["name"])
+
+        # Stop if genus changes
+        if genus != genus1:
+            break
+
+        # Stop if both species are defined and different
+        if (not is_undefined_species(species1)
+            and not is_undefined_species(species)
+            and species != species1):
+            break
+
+        accumulated += all_species[idx]["fraction_total_reads"]
+        idx += 1
+
+    return accumulated, idx, block_name
+
+
+###############################
+#   MAIN PROCESSING FUNCTIONS
+###############################
+
+def extract_bracken_sorted(species_detection: Category, results: Dict, bracken_file: str) -> None:
     file_name = os.path.basename(bracken_file)
     file_key = common.json_key_cleaner(file_name)
 
@@ -24,10 +70,8 @@ def extract_bracken_sorted(
     with open(bracken_file, "r", encoding="utf-8") as fh:
         buffer = fh.readlines()
 
-    # Skip header
-    entries = buffer[1:]
+    entries = buffer[1:]  # skip header
 
-    # Store ALL species rows in results
     for line in entries:
         cols = line.rstrip("\n").split("\t")
         results[file_key]["all_species"].append({
@@ -40,38 +84,40 @@ def extract_bracken_sorted(
             "fraction_total_reads": float(cols[6]),
         })
 
-    # Store top 1–2 species ONLY in summary
-    if len(entries) > 0:
-        cols = entries[0].rstrip("\n").split("\t")
-        species_detection["summary"]["name_classified_species_1"] = cols[0]
-        species_detection["summary"]["percent_classified_species_1"] = float(cols[6])
 
-    if len(entries) > 1:
-        cols = entries[1].rstrip("\n").split("\t")
-        species_detection["summary"]["name_classified_species_2"] = cols[0]
-        species_detection["summary"]["percent_classified_species_2"] = float(cols[6])
+def species_math(species_detection: Category, results: Dict, bracken_file: str) -> None:
+    file_key = common.json_key_cleaner(os.path.basename(bracken_file))
+    all_species = results[file_key]["all_species"]
 
+    if not all_species:
+        return
 
-def species_math(
-    species_detection: Category, results: Dict, bracken_file: str
-) -> None:
-    """
-    Compute percent_classified and percent_unclassified using summary fields.
-    """
-    s = species_detection["summary"]
+    # -------------------------
+    # SPECIES 1 BLOCK
+    # -------------------------
+    accumulated_1, next_index, name_1 = accumulate_block(all_species, 0)
+    species_detection["summary"]["name_classified_species_1"] = name_1
+    species_detection["summary"]["percent_classified_species_1"] = accumulated_1
 
-    total_fraction = 0.0
-    if "percent_classified_species_1" in s:
-        total_fraction += s["percent_classified_species_1"]
-    if "percent_classified_species_2" in s:
-        total_fraction += s["percent_classified_species_2"]
+    # -------------------------
+    # SPECIES 2 BLOCK
+    # -------------------------
+    accumulated_2 = 0.0
+    name_2 = None
 
-    s["percent_classified"] = total_fraction
-    s["percent_unclassified"] = 1.0 - total_fraction
+    if next_index < len(all_species):
+        accumulated_2, _, name_2 = accumulate_block(all_species, next_index)
+        species_detection["summary"]["name_classified_species_2"] = name_2
+        species_detection["summary"]["percent_classified_species_2"] = accumulated_2
 
-    # Detected species = species_1
-    if "name_classified_species_1" in s:
-        s["detected_species"] = s["name_classified_species_1"]
+    # -------------------------
+    # TOTALS
+    # -------------------------
+    total_fraction = accumulated_1 + accumulated_2
+    species_detection["summary"]["percent_classified"] = total_fraction
+    species_detection["summary"]["percent_unclassified"] = 1.0 - total_fraction
+
+    species_detection["summary"]["detected_species"] = name_1
 
 
 def set_sample_species(species_detection: Category, sample: Sample) -> None:
@@ -87,12 +133,15 @@ def set_sample_species(species_detection: Category, sample: Sample) -> None:
         )
 
 
+###############################
+#   MAIN ENTRY POINT
+###############################
+
 def datadump(samplecomponent_ref_json: Dict):
     samplecomponent_ref = SampleComponentReference(value=samplecomponent_ref_json)
     samplecomponent = SampleComponent.load(samplecomponent_ref)
     sample = Sample.load(samplecomponent.sample)
 
-    # Use Snakemake input directly
     bracken_file = snakemake.input[0]
 
     species_detection = samplecomponent.get_category("species_detection")
@@ -109,18 +158,8 @@ def datadump(samplecomponent_ref_json: Dict):
             }
         )
 
-    extract_bracken_sorted(
-        species_detection,
-        samplecomponent["results"],
-        bracken_file,
-    )
-
-    species_math(
-        species_detection,
-        samplecomponent["results"],
-        bracken_file,
-    )
-
+    extract_bracken_sorted(species_detection, samplecomponent["results"], bracken_file)
+    species_math(species_detection, samplecomponent["results"], bracken_file)
     set_sample_species(species_detection, sample)
 
     samplecomponent.set_category(species_detection)
@@ -131,13 +170,10 @@ def datadump(samplecomponent_ref_json: Dict):
 
     with open(
         os.path.join(samplecomponent["component"]["name"], "datadump_complete"),
-        "w+",
-        encoding="utf-8",
+        "w+", encoding="utf-8",
     ) as fh:
         fh.write("done")
 
 
-datadump(
-    snakemake.params.samplecomponent_ref_json,
-)
+datadump(snakemake.params.samplecomponent_ref_json)
 
