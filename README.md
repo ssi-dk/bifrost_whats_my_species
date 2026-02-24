@@ -15,3 +15,10 @@ kraken -db {params.db} {input.reads} 2> {log.err_file} | kraken-report -db {para
 est_abundance.py -i {input.kraken_report} -k {params.kmer_dist} -o {output.bracken} 1> {log.out_file} 2> {log.err_file}
 sort -r -t$'\t' -k7 {output.bracken} -o {output.bracken}
 ```
+
+## Summary of c run: (see pipeline.smk and config.yaml)
+# bracken has well know bug print("\t  >> Unclassified reads: %i" % u_reads) - so update bracken as well as kraken2 
+```
+conda install -c bioconda bracken
+conda install -c bioconda kraken2
+```
