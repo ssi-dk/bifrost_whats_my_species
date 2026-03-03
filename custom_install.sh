@@ -9,9 +9,7 @@
 
 #ENV_NAME=$1
 
-MINIKRAKEN_DB_LINK=http://ccb.jhu.edu/software/kraken/dl/minikraken_20171019_8GB.tgz
-MINIKRAKEN_BRACKEN_LINK=http://ccb.jhu.edu/software/bracken/dl/minikraken_8GB_100mers_distrib.txt
-MINIKRAKEN_BRACKEN_FILE=minikraken_100mers_distrib.txt
+MINIKRAKEN_DB_LINK=https://genome-idx.s3.amazonaws.com/kraken/k2_standard_16_GB_20251015.tar.gz
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 cd $SCRIPT_DIR # avoiding small edge case where bashrc sourcing changes your directory
@@ -56,7 +54,7 @@ then
       echo >&2 "wget command failed"
       exit_function
     else
-      MINIKRAKEN_DB_FILE=$(find $RESOURCES/minikraken/ -name "minikraken_*")
+      MINIKRAKEN_DB_FILE=$(find $RESOURCES/minikraken/ -name "k2_standard_16_GB_*")
       echo "#################Extracting the minikraken db from archive"
       if ! tar -zxf $MINIKRAKEN_DB_FILE --strip-components=1
       then
@@ -64,16 +62,7 @@ then
         exit_function
       else
         rm $MINIKRAKEN_DB_FILE
-        echo "#################Downloading minikraken bracken file database"
-        if ! wget -O $MINIKRAKEN_BRACKEN_FILE -q $MINIKRAKEN_BRACKEN_LINK
-        then
-          echo >&2 "wget bracken file command failed"
-          exit_function
-        else
-          chmod +r minikraken_100mers_distrib.txt
-          echo "kraken db successfully downloaded"
-        fi
-      fi
+     fi
     fi
   else
     echo "wget is not installed"
