@@ -133,7 +133,7 @@ rule kraken2_classify:
         tool_version = f"{component['name']}/kraken2_version.txt",
         threads_file = f"{component['name']}/threads_used.txt"
     params:
-        db = f"{os.environ['BIFROST_INSTALL_DIR']}/bifrost/components/bifrost_{component['display_name']}/resources/minikraken2/",
+        db = f"{os.environ['BIFROST_INSTALL_DIR']}/bifrost/components/bifrost_{component['display_name']}/{component['resources']['kraken_database']}",
         threads = 8
     shell:
         r"""
@@ -169,7 +169,7 @@ rule bracken:
         bracken_report = f"{component['name']}/kraken_report_bracken.txt",
         tool_version = f"{component['name']}/bracken_version.txt"
     params:
-        db = f"{os.environ['BIFROST_INSTALL_DIR']}/bifrost/components/bifrost_{component['display_name']}/resources/minikraken2/",
+        db = f"{os.environ['BIFROST_INSTALL_DIR']}/bifrost/components/bifrost_{component['display_name']}/{component['resources']['kraken_database']}",
         read_length = 150,
         level = "S"
     shell:
