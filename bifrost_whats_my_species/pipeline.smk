@@ -53,7 +53,10 @@ onerror:
 
 envvars:
     "BIFROST_INSTALL_DIR",
-    "CONDA_PREFIX"
+    "CONDA_PREFIX",
+    "BIFROST_CPUS_KRAKEN",
+
+JOB_CPUS = int(os.environ.get("BIFROST_CPUS_KRAKEN", 1))
 
 # -------------------------------------------------------------------------
 # MAIN RULES
@@ -134,7 +137,7 @@ rule kraken2_classify:
         threads_file = f"{component['name']}/threads_used.txt"
     params:
         db = f"{os.environ['BIFROST_INSTALL_DIR']}/bifrost/components/bifrost_{component['display_name']}/{component['resources']['kraken_database']}",
-        threads = 8
+        threads = JOB_CPUS
     shell:
         r"""
         kraken2 {input.reads[0]} {input.reads[1]} \
