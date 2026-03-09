@@ -33,9 +33,11 @@ options:
 #-Required resource files---------------------------------------------------------------------------
 resources:
   kraken_database: "resources/minikraken/"
-    https://genome-idx.s3.amazonaws.com/kraken/k2_standard_16_GB_20251015.tar.gz
-  kraken_kmer_dist: "resources/minikraken/minikraken_100mers_distrib.txt"
-    # Husk at ændre kmer_dist filen - brug 150mer fra ny db
+  kraken_kmer_dist: "resources/minikraken/database150mers.kmer_distrib"
+
+# Husk at ændre kmer_dist filen - brug 150mer fra ny db
+#https://genome-idx.s3.amazonaws.com/kraken/k2_standard_16_GB_20251015.tar.gz
+
 #---------------------------------------------------------------------------------------------------
 
 #-Requirements to run component---------------------------------------------------------------------

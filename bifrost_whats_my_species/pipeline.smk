@@ -1,6 +1,7 @@
 import os
 import sys
 import traceback
+import subprocess
 
 from bifrostlib import common
 from bifrostlib.datahandling import SampleReference, Sample
@@ -59,6 +60,20 @@ envvars:
 JOB_CPUS = int(os.environ.get("BIFROST_CPUS_KRAKEN", 1))
 
 # -------------------------------------------------------------------------
+# GIT HASH - VERSION CONTROL
+# -------------------------------------------------------------------------
+
+def find_git_root(start_dir):
+    cur = os.path.abspath(start_dir)
+    while True:
+        if os.path.isdir(os.path.join(cur, ".git")):
+            return cur
+        parent = os.path.dirname(cur)
+        if parent == cur:  # reached filesystem root
+            return None
+        cur = parent
+
+# -------------------------------------------------------------------------
 # MAIN RULES
 # -------------------------------------------------------------------------
 
@@ -94,7 +109,7 @@ rule setup:
         samplecomponent.save()
 
 # -------------------------------------------------------------------------
-# CHECK REQUIREMENTS (DISABLED)
+# CHECK REQUIREMENTS
 # -------------------------------------------------------------------------
 
 rule_name = "check_requirements"
@@ -111,8 +126,10 @@ rule check_requirements:
     output:
         check_file = touch(f"{component['name']}/requirements_met")
     run:
-        # Requirements disabled
-        pass
+        if samplecomponent.has_requirements():
+            #No need to write anything as the output is using touch to create the flag used to check the requirements
+            pass
+	    
 
 # -------------------------------------------------------------------------
 # KRAKEN2 CLASSIFICATION
@@ -222,21 +239,30 @@ rule git_version:
     output:
         git_hash = f"{component['name']}/git_hash.txt"
     run:
-        import subprocess, os
-
         snake_dir = os.path.dirname(workflow.snakefile)
+        repo_root = find_git_root(snake_dir)
+
+        print(f"DEBUG snake_dir: {snake_dir}")
+        print(f"DEBUG repo_root: {repo_root}")
 
         try:
-            git_hash = subprocess.check_output(
-                ["git", "-C", snake_dir, "rev-parse", "HEAD"],
-                stderr=subprocess.STDOUT,
-                text=True
-            ).strip()
-        except Exception:
+            if repo_root:
+                git_hash = subprocess.check_output(
+                    ["git", "-C", repo_root, "rev-parse", "HEAD"],
+                    stderr=subprocess.STDOUT,
+                    text=True
+                ).strip()
+                print(f"DEBUG git_hash: {git_hash}")
+            else:
+                print("DEBUG: No git repo found")
+                git_hash = "-"
+        except Exception as e:
+            print(f"DEBUG git exception: {e}")
             git_hash = "-"
 
         with open(output.git_hash, "w") as fh:
             fh.write(str(git_hash))
+
 
 # -------------------------------------------------------------------------
 # DUMP INFO
