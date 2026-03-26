@@ -9,7 +9,7 @@
 
 ENV_NAME=$1
 
-MINIKRAKEN_DB_LINK=https://genome-idx.s3.amazonaws.com/kraken/k2_standard_16_GB_20251015.tar.gz
+MINIKRAKEN_DB_LINK=https://genome-idx.s3.amazonaws.com/kraken/k2_standard_16_GB_20260226.tar.gz
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 cd $SCRIPT_DIR # avoiding small edge case where bashrc sourcing changes your directory
@@ -54,9 +54,9 @@ then
       echo >&2 "wget command failed"
       exit_function
     else
-      MINIKRAKEN_DB_FILE=$(find $RESOURCES/minikraken/ -name "k2_standard_16_GB_*")
+      MINIKRAKEN_DB_FILE=$(find . -name "k2_standard_16_GB_*")
       echo "#################Extracting the minikraken db from archive"
-      if ! tar -zxf $MINIKRAKEN_DB_FILE --strip-components=1
+      if ! tar -xzf $MINIKRAKEN_DB_FILE 
       then
         echo >&2 "tar command failed"
         exit_function
