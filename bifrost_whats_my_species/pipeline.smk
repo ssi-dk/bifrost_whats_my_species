@@ -47,6 +47,10 @@ except Exception:
 # ERROR HANDLING (NO REQUIREMENTS CHECK)
 # -------------------------------------------------------------------------
 
+if not samplecomponent.has_requirements(): # See if this works, otherwise remove
+   common.set_status_and_save(sample, samplecomponent, "Requirements not met")
+   raise SystemExit("Requirements not met")
+
 onerror:
     # Requirements disabled to avoid Pandas crash
     if samplecomponent["status"] == "Running":
@@ -109,29 +113,6 @@ rule setup:
         samplecomponent.save()
 
 # -------------------------------------------------------------------------
-# CHECK REQUIREMENTS
-# -------------------------------------------------------------------------
-
-rule_name = "check_requirements"
-rule check_requirements:
-    message:
-        f"Running step:{rule_name}"
-    log:
-        out_file = f"{component['name']}/log/{rule_name}.out.log",
-        err_file = f"{component['name']}/log/{rule_name}.err.log",
-    benchmark:
-        f"{component['name']}/benchmarks/{rule_name}.benchmark"
-    input:
-        folder = rules.setup.output.init_file
-    output:
-        check_file = touch(f"{component['name']}/requirements_met")
-    run:
-        if samplecomponent.has_requirements():
-            #No need to write anything as the output is using touch to create the flag used to check the requirements
-            pass
-	    
-
-# -------------------------------------------------------------------------
 # KRAKEN2 CLASSIFICATION
 # -------------------------------------------------------------------------
 
@@ -143,7 +124,6 @@ rule kraken2_classify:
         out_file = f"{component['name']}/log/{rule_name}.out.log",
         err_file = f"{component['name']}/log/{rule_name}.err.log"
     input:
-        rules.check_requirements.output.check_file,
         reads = sample["categories"]["trimmed_reads"]["summary"]["data"]
     output:
         report = f"{component['name']}/kraken_report.txt",
